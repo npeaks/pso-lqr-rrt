@@ -137,8 +137,11 @@ def cost_collision(trajectory):
 
 
 # Fuel cost function
+# The bebops have pretty long battery life (25 min)
+# Estimating how actions affect battery life is extrememly difficult
+# Let's just assume fule is a non-issue
 def cost_fuel(trajectory):
-    return 0 # TODO
+    return 0
 
 
 # Smoothing cost function
