@@ -11,12 +11,17 @@ num_coordinates = 3
 altitude_coordinate = 2
 max_altitude = 10
 min_altitude = 0
+penalty = 3
 
-# trajectory is ndarray with shape (num_waypoints, num_coordinates)
-def cost_length(trajectory):
+# trajectory is ndarray with shape (num_waypoints, num_coordinates)]
+
+def get_length(trajectory):
     diffs = trajectory[:-1] - trajectory[1:]
     distances = np.apply_along_axis(np.linalg.norm, 1, diffs)
     return np.sum(distances)
+
+def cost_length(trajectory):
+    return 1 - (np.linalg.norm(trajectory[0]-trajectory[-1]), get_length(trajectory))
 
 def cost_altitude(trajectory):
     if altitude_coordinate == None:
@@ -25,14 +30,37 @@ def cost_altitude(trajectory):
     avg_altitude = np.sum(altitudes) / num_waypoints
     return (avg_altitude - min_altitude) / (max_altitude - min_altitude)
 
+# dangerzones is an ndarray with shape(num zones, 3)
+# we use a cylindrical approximation, x,y,d
+dangerzones = np.ndarray([[1,2,3],[4,5,6],[7,8,9],[10,11,1]])
+
 def cost_dangerzones(trajectory):
-    return 0 # TODO
+    totalLength = 0.0
+    for p in trajectory:
+
+    def is_in_zone(p):
+        for zone in dangerzones:
+            if (np.linalg.norm(p[:2]-zone[:2]) < zone[2]):
+                return True
+        return False
+    contained = np.apply_along_axis(is_in_zone, 1, trajectory)
+    diameters = np.sum(dangerzones, 0)[2]
+    for i in range(1, len(contained)):
+        if contained[i] and contained[i-1]:
+            totalLength += np.linalg.norm(trajectory[i]-trajectory[i-1])
+    return min(1,max(0,totalLength/diameters))
 
 def cost_power(trajectory):
     return 0 # TODO
 
 def cost_collision(trajectory):
-    return 0 # TODO
+    length = 0
+    for i in range(1,len(trajectory)):
+        if trajectory[i][2] <= 0 and trajectory[i-1][2] <= 0:
+            length += np.linalg.norm(trajectory[i]-trajectory[i-1])
+    if length == 0:
+        return 0
+    return penalty + length/get_length(trajectory) # TODO
 
 def cost_fuel(trajectory):
     return 0 # TODO
@@ -47,6 +75,8 @@ def cost_total_trajectory(trajectory):
         cost_smoothing(trajectory)
 
 # particle is ndarray with shape (1, num_waypoints * num_coordinates)
+# coords should be 3, x,y,z; This is because we are looking at the quadcopter
+# navigation stuff
 def cost_total_particle(particle):
     trajectory = particle.reshape((num_waypoints, num_coordinates))
     return cost_total_trajectory(trajectory)
