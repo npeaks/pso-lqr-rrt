@@ -2,21 +2,24 @@
 import numpy as np
 import pyswarms as ps
 
-# Cost Function
-# x is a numpy array with shape (n_particles, dimensions)
-
 num_trajectories = 10
 num_waypoints = 100
 num_coordinates = 3
 altitude_coordinate = 2
 max_altitude = 10
 min_altitude = 0
+start_coords = np.array([[0, 0, 0]])
+end_coords = np.array([[1, 1, 1]])
 
 # trajectory is ndarray with shape (num_waypoints, num_coordinates)
-def cost_length(trajectory):
+
+def length(trajectory):
     diffs = trajectory[:-1] - trajectory[1:]
     distances = np.apply_along_axis(np.linalg.norm, 1, diffs)
     return np.sum(distances)
+
+def cost_length(trajectory):
+    return 1 - np.linalg.norm(end_coords - start_coords) / length(trajectory)
 
 def cost_altitude(trajectory):
     if altitude_coordinate == None:
