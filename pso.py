@@ -36,9 +36,16 @@ def air_resistance(velocity):
 
 max_force = robot_mass * gravitational_acceleration + air_resistance(6)
 
+# returns column vector of 1 if waypoint is underground, 0 otherwise
+# edit this function to check for collisions beyond just ground
+def is_colliding(trajectory):
+    mask_altitude = np.zeros((trajectory.shape[1], 1))
+    mask_altitude[altitude_coordinate] = [1]
+    altitudes = np.dot(trajectory, mask_altitude)
+    return altitudes < 0
+
 
 # trajectory is ndarray with shape (num_waypoints, num_coordinates)
-
 
 # Length cost function
 def length(trajectory):
@@ -100,8 +107,16 @@ def cost_power(trajectory):
 
 
 # Collision cost function
+
 def cost_collision(trajectory):
-    return 0 # TODO
+    mask_collision_position = is_colliding(trajectory)
+    if np.sum(mask_collision_position):
+        mask_collision_distance = np.logical_or(mask_collision_position[1:], \
+            mask_collision_position[:-1])
+        position_differences = trajectory[1:] - trajectory[:-1]
+        distances = np.apply_along_axis(np.linalg.norm, 1, position_differences)
+        return np.sum(mask_collision_distance * distances)
+    return 0
 
 
 # Fuel cost function
