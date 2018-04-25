@@ -132,7 +132,7 @@ def cost_collision(trajectory):
             mask_collision_position[:-1])
         position_differences = trajectory[1:] - trajectory[:-1]
         distances = np.apply_along_axis(np.linalg.norm, 1, position_differences)
-        return np.sum(mask_collision_distance * distances)
+        return penaly_constant + np.sum(mask_collision_distance * distances)/length(trajectory)
     return 0
 
 
