@@ -1,6 +1,9 @@
 # Import modules
 import numpy as np
 import pyswarms as ps
+import matplotlib as mpl
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 
 # must be higher than worst possible cost without it (3)
 penalty_constant = 5
@@ -13,8 +16,9 @@ time_between_waypoints = .1
 
 altitude_coordinate = 2
 
-start_coords = np.array([[0, 0, 0]])
-end_coords = np.array([[1, 1, 1]])
+start_coords = np.array([0, 0, 5])
+end_coords = np.array([15, 15, 10])
+overall_scale = 20.0
 
 # choose based on environment
 max_altitude = 10
@@ -40,8 +44,8 @@ max_force = robot_mass * gravitational_acceleration + air_resistance(6)
 # returns column vector of 1 if waypoint is underground, 0 otherwise
 # edit this function to check for collisions beyond just ground
 def is_colliding(trajectory):
-    mask_altitude = np.zeros((trajectory.shape[1], 1))
-    mask_altitude[altitude_coordinate] = [1]
+    mask_altitude = np.zeros((trajectory.shape[1], ))
+    mask_altitude[altitude_coordinate] = 1
     altitudes = np.dot(trajectory, mask_altitude)
     return altitudes < 0
 
@@ -55,7 +59,7 @@ def length(trajectory):
     return np.sum(distances)
 
 def cost_length(trajectory):
-    length_line = np.linalg.norm(end_coords - start_coords)
+    length_line = np.linalg.norm(trajectory[-1] - trajectory[0])
     length_actual = length(trajectory)
     return 1 - length_line / length_actual
 
@@ -70,12 +74,11 @@ def cost_altitude(trajectory):
 
 # dangerzones is an ndarray with shape(num zones, 3)
 # we use a cylindrical approximation, x,y,d
-dangerzones = np.ndarray([[1,2,3],[4,5,6],[7,8,9],[10,11,1]])
+dangerzones = np.array([[2,2,2],[4,5,2],[7,8,1],[10,11,3], [10,1,4], [1,12,3]])/overall_scale
 
 
 def cost_dangerzones(trajectory):
     totalLength = 0.0
-    for p in trajectory:
 
     def is_in_zone(p):
         for zone in dangerzones:
@@ -123,13 +126,15 @@ def cost_power(trajectory):
     return 0
 
 def cost_origin(trajectory):
-    if np.linalg.norm(trajectory[0]-start_coords) > 0:
-        return penalty_constant
+    dist = np.linalg.norm(trajectory[0]-start_coords)
+    if dist > 0:
+        return penalty_constant+dist
     return 0
 
 def cost_dest(trajectory):
-    if np.linalg.norm(trajectory[-1]-end_coords) > 0:
-        return penalty_constant
+    dist = np.linalg.norm(trajectory[-1]-end_coords)
+    if dist > 0:
+        return 3*penalty_constant+dist
     return 0
 
 
@@ -142,7 +147,8 @@ def cost_collision(trajectory):
             mask_collision_position[:-1])
         position_differences = trajectory[1:] - trajectory[:-1]
         distances = np.apply_along_axis(np.linalg.norm, 1, position_differences)
-        return penaly_constant + np.sum(mask_collision_distance * distances)/length(trajectory)
+        arg =  np.sum(mask_collision_distance * distances)/length(trajectory)
+        return penalty_constant + arg
     return 0
 
 
@@ -164,7 +170,8 @@ def cost_total_trajectory(trajectory):
     return cost_length(trajectory) + cost_altitude(trajectory) + \
         cost_dangerzones(trajectory) + cost_power(trajectory) + \
         cost_collision(trajectory) + cost_fuel(trajectory) + \
-        cost_smoothing(trajectory)
+        cost_smoothing(trajectory)+cost_origin(trajectory) + \
+        cost_dest(trajectory)
 
 # particle is ndarray with shape (1, num_waypoints * num_coordinates)
 # coords should be 3, x,y,z; This is because we are looking at the quadcopter
@@ -185,4 +192,33 @@ options = {'c1': 0.5, 'c2': 0.3, 'w':0.9}
 optimizer = ps.single.GlobalBestPSO(n_particles=num_trajectories, \
     dimensions=(num_waypoints * num_coordinates), options=options)
 cost, pos = optimizer.optimize(objective, print_step=100, iters=1000, verbose=3)
+pos = pos.reshape((num_waypoints, num_coordinates))*overall_scale
+print pos
+
+mpl.rcParams['legend.fontsize'] = 10
+
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+z = pos[:,2]
+x = pos[:,0]
+y = pos[:,1]
+ax.plot(x, y, z, label='parametric curve')
+
+ax.scatter(start_coords[0], start_coords[1],start_coords[2])
+ax.scatter(end_coords[0], end_coords[1],end_coords[2])
+ 
+for cyl in dangerzones:    
+    r = cyl[2]/2.0 *overall_scale
+    xc = cyl[0] * overall_scale
+    yc = cyl[1] * overall_scale                   
+    x=np.linspace(xc-r, xc+r, 100)
+    z=np.linspace(0, overall_scale, 100)
+    Xc, Zc=np.meshgrid(x, z)
+    Yc = np.sqrt(r**2-(Xc-xc)**2)
+    rstride = 20
+    cstride = 20
+    ax.plot_surface(Xc, Yc+yc, Zc, alpha=0.2, rstride=rstride, cstride=cstride)
+    ax.plot_surface(Xc, -Yc+yc, Zc, alpha=0.2, rstride=rstride, cstride=cstride)
+
+plt.show()
 
