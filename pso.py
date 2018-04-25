@@ -122,6 +122,16 @@ def cost_power(trajectory):
         return penalty_constant + L_nonfeasible / length(trajectory)
     return 0
 
+def cost_origin(trajectory):
+    if np.linalg.norm(trajectory[0]-start_coords) > 0:
+        return penalty_constant
+    return 0
+
+def cost_dest(trajectory):
+    if np.linalg.norm(trajectory[-1]-end_coords) > 0:
+        return penalty_constant
+    return 0
+
 
 # Collision cost function
 
