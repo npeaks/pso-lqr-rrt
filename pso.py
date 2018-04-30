@@ -193,7 +193,7 @@ optimizer = ps.single.GlobalBestPSO(n_particles=num_trajectories, \
     dimensions=(num_waypoints * num_coordinates), options=options)
 cost, pos = optimizer.optimize(objective, print_step=100, iters=1000, verbose=3)
 pos = pos.reshape((num_waypoints, num_coordinates))*overall_scale
-print pos
+print(pos)
 
 mpl.rcParams['legend.fontsize'] = 10
 
