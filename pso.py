@@ -7,23 +7,27 @@ import matplotlib.pyplot as plt
 
 # must be higher than worst possible cost without it (3)
 penalty_constant = 5
+tolerance = .0001
 
-num_trajectories = 10
-num_waypoints = 100
+num_trajectories = 50
+num_waypoints = 10
+# num_waypoints = 100
 num_coordinates = 3
 
 time_between_waypoints = .1
 
 altitude_coordinate = 2
 
-start_coords = np.array([0, 0, 5])
-end_coords = np.array([15, 15, 10])
-overall_scale = 20.0
+start_coords = np.array([0, 0, 0])
+end_coords = np.array([1, 1, 1])
+overall_scale = 1
+# start_coords = np.array([0, 0, 5])
+# end_coords = np.array([15, 15, 10])
+# overall_scale = 20.0
 
 # choose based on environment
 max_altitude = 10
 min_altitude = 0
-penalty = 3
 
 # properties of the Earth
 air_density = 1.292 # roughly sea level, room temperature
@@ -44,6 +48,8 @@ max_force = robot_mass * gravitational_acceleration + air_resistance(6)
 # returns column vector of 1 if waypoint is underground, 0 otherwise
 # edit this function to check for collisions beyond just ground
 def is_colliding(trajectory):
+    if altitude_coordinate == None:
+        return 0
     mask_altitude = np.zeros((trajectory.shape[1], ))
     mask_altitude[altitude_coordinate] = 1
     altitudes = np.dot(trajectory, mask_altitude)
@@ -59,9 +65,9 @@ def length(trajectory):
     return np.sum(distances)
 
 def cost_length(trajectory):
-    length_line = np.linalg.norm(trajectory[-1] - trajectory[0])
+    length_line = np.linalg.norm(start_coords - end_coords)
     length_actual = length(trajectory)
-    return 1 - length_line / length_actual
+    return abs(1 - length_line / length_actual)
 
 
 # Altitude cost function
@@ -95,7 +101,8 @@ def cost_dangerzones(trajectory):
 # Power cost function
 def gravitational_force(shape):
     F_g = np.zeros(shape)
-    F_g[:, altitude_coordinate] = np.ones(shape[0])
+    if altitude_coordinate != None:
+        F_g[:, altitude_coordinate] = np.ones(shape[0])
     F_g *= robot_mass * gravitational_acceleration
     return F_g
 
@@ -126,16 +133,13 @@ def cost_power(trajectory):
     return 0
 
 def cost_origin(trajectory):
-    dist = np.linalg.norm(trajectory[0]-start_coords)
-    if dist > 0:
-        return penalty_constant+dist
-    return 0
+    dist = np.linalg.norm(trajectory[0] - start_coords)
+    return dist + (2 * penalty_constant if dist > tolerance else 0)
+
 
 def cost_dest(trajectory):
-    dist = np.linalg.norm(trajectory[-1]-end_coords)
-    if dist > 0:
-        return 3*penalty_constant+dist
-    return 0
+    dist = np.linalg.norm(trajectory[-1] - end_coords)
+    return dist + (3 * penalty_constant if dist > tolerance else 0)
 
 
 # Collision cost function
@@ -155,7 +159,7 @@ def cost_collision(trajectory):
 # Fuel cost function
 # The bebops have pretty long battery life (25 min)
 # Estimating how actions affect battery life is extrememly difficult
-# Let's just assume fule is a non-issue
+# Let's just assume fuel is a non-issue
 def cost_fuel(trajectory):
     return 0
 
@@ -198,27 +202,26 @@ print(pos)
 mpl.rcParams['legend.fontsize'] = 10
 
 fig = plt.figure()
-ax = fig.gca(projection='3d')
-z = pos[:,2]
-x = pos[:,0]
-y = pos[:,1]
-ax.plot(x, y, z, label='parametric curve')
+ax = fig.gca(projection=('3d' if num_coordinates == 3 else None))
+points = map(lambda i: pos[:,i], range(num_coordinates))
+ax.plot(*points, label='parametric curve')
 
-ax.scatter(start_coords[0], start_coords[1],start_coords[2])
-ax.scatter(end_coords[0], end_coords[1],end_coords[2])
+ax.scatter(*start_coords)
+ax.scatter(*end_coords)
  
-for cyl in dangerzones:    
-    r = cyl[2]/2.0 *overall_scale
-    xc = cyl[0] * overall_scale
-    yc = cyl[1] * overall_scale                   
-    x=np.linspace(xc-r, xc+r, 100)
-    z=np.linspace(0, overall_scale, 100)
-    Xc, Zc=np.meshgrid(x, z)
-    Yc = np.sqrt(r**2-(Xc-xc)**2)
-    rstride = 20
-    cstride = 20
-    ax.plot_surface(Xc, Yc+yc, Zc, alpha=0.2, rstride=rstride, cstride=cstride)
-    ax.plot_surface(Xc, -Yc+yc, Zc, alpha=0.2, rstride=rstride, cstride=cstride)
+if num_coordinates == 3:
+    for cyl in dangerzones:    
+        r = cyl[2]/2.0 *overall_scale
+        xc = cyl[0] * overall_scale
+        yc = cyl[1] * overall_scale                   
+        x=np.linspace(xc-r, xc+r, 100)
+        z=np.linspace(0, overall_scale, 100)
+        Xc, Zc=np.meshgrid(x, z)
+        Yc = np.sqrt(r**2-(Xc-xc)**2)
+        rstride = 20
+        cstride = 20
+        ax.plot_surface(Xc, Yc+yc, Zc, alpha=0.2, rstride=rstride, cstride=cstride)
+        ax.plot_surface(Xc, -Yc+yc, Zc, alpha=0.2, rstride=rstride, cstride=cstride)
 
 plt.show()
 
