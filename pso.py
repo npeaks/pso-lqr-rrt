@@ -9,21 +9,20 @@ import matplotlib.pyplot as plt
 penalty_constant = 5
 tolerance = .0001
 
-num_trajectories = 50
-num_waypoints = 10
-# num_waypoints = 100
+num_trajectories = 256
+num_waypoints = 8
 num_coordinates = 3
 
-time_between_waypoints = .1
+time_between_waypoints = 1
 
 altitude_coordinate = 2
 
-start_coords = np.array([0, 0, 0])
-end_coords = np.array([1, 1, 1])
-overall_scale = 1
-# start_coords = np.array([0, 0, 5])
-# end_coords = np.array([15, 15, 10])
-# overall_scale = 20.0
+# start_coords = np.array([0, 0, 0])
+# end_coords = np.array([1, 1, 1])
+# overall_scale = 1
+start_coords = np.array([0, 0, 5])
+end_coords = np.array([15, 15, 10])
+overall_scale = 20.0
 
 # choose based on environment
 max_altitude = 10
@@ -132,15 +131,6 @@ def cost_power(trajectory):
         return penalty_constant + L_nonfeasible / length(trajectory)
     return 0
 
-def cost_origin(trajectory):
-    dist = np.linalg.norm(trajectory[0] - start_coords)
-    return dist + (2 * penalty_constant if dist > tolerance else 0)
-
-
-def cost_dest(trajectory):
-    dist = np.linalg.norm(trajectory[-1] - end_coords)
-    return dist + (3 * penalty_constant if dist > tolerance else 0)
-
 
 # Collision cost function
 
@@ -174,14 +164,14 @@ def cost_total_trajectory(trajectory):
     return cost_length(trajectory) + cost_altitude(trajectory) + \
         cost_dangerzones(trajectory) + cost_power(trajectory) + \
         cost_collision(trajectory) + cost_fuel(trajectory) + \
-        cost_smoothing(trajectory)+cost_origin(trajectory) + \
-        cost_dest(trajectory)
+        cost_smoothing(trajectory)
 
 # particle is ndarray with shape (1, num_waypoints * num_coordinates)
 # coords should be 3, x,y,z; This is because we are looking at the quadcopter
 # navigation stuff
 def cost_total_particle(particle):
     trajectory = particle.reshape((num_waypoints, num_coordinates))
+    trajectory = np.vstack((start_coords, trajectory, end_coords))
     return cost_total_trajectory(trajectory)
 
 # x is ndarray with shape (num_trajectories, num_waypoints * num_coordinates)
@@ -192,11 +182,12 @@ def objective(x):
     
 
 from pyswarms.utils.functions import single_obj as fx
-options = {'c1': 0.5, 'c2': 0.3, 'w':0.9}
+options = {'c1': 1.496, 'c2': 1.496, 'w':0.7298}
 optimizer = ps.single.GlobalBestPSO(n_particles=num_trajectories, \
     dimensions=(num_waypoints * num_coordinates), options=options)
-cost, pos = optimizer.optimize(objective, print_step=100, iters=1000, verbose=3)
-pos = pos.reshape((num_waypoints, num_coordinates))*overall_scale
+cost, pos = optimizer.optimize(objective, print_step=100, iters=300, verbose=3)
+pos = pos.reshape((num_waypoints, num_coordinates)) * overall_scale
+pos = np.vstack((start_coords, pos, end_coords))
 print(pos)
 
 mpl.rcParams['legend.fontsize'] = 10
